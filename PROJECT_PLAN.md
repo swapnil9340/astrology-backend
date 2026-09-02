@@ -1,8 +1,8 @@
 # AstroVeda — Master Project Plan (Hybrid AI Prediction Platform)
 
 > **Living planning doc.** Vision, **hybrid model** architecture, **saari prediction types**
-> (DOB se), aur AI agent strategy. Implementation docs alag: `backend/BACKEND.md` ·
-> `frontend-astro/FRONTEND.md`. Status: **PLANNING**.
+> (DOB se), aur AI agent strategy. Implementation docs: `./BACKEND.md` (this repo) ·
+> `frontend-astro/FRONTEND.md` (frontend repo). Status: **PLANNING**.
 
 ---
 

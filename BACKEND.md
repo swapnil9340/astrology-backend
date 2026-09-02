@@ -3,7 +3,8 @@
 > **Living document.** Har naya backend feature yahan add karte jao. Ye file
 > akela padh ke koi bhi (AI ya insaan) poora backend samajh sakta hai.
 >
-> Frontend docs: `../frontend-astro/FRONTEND.md` · Master plan: `../PROJECT_PLAN.md`
+> Master plan: `./PROJECT_PLAN.md` (this repo) · Frontend docs: separate repo
+> `astrology-frontend` → `frontend-astro/FRONTEND.md`.
 
 ---
 
