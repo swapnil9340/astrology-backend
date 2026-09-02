@@ -12,12 +12,13 @@ import { generalLimiter, authLimiter } from "./middleware/rateLimit.js";
 export function createApp() {
   const app = express();
 
-  const origins = (process.env.CLIENT_ORIGIN || "http://localhost:3000")
-    .split(",")
-    .map((o) => o.trim());
+  const raw = (process.env.CLIENT_ORIGIN || "http://localhost:3000").trim();
+  // CLIENT_ORIGIN="*" → allow all origins (origin:true reflects the request
+  // origin so it still works with credentials). Else use the comma-separated list.
+  const corsOrigin = raw === "*" ? true : raw.split(",").map((o) => o.trim());
 
   app.use(helmet()); // secure HTTP headers
-  app.use(cors({ origin: origins, credentials: true }));
+  app.use(cors({ origin: corsOrigin, credentials: true }));
   app.use(express.json({ limit: "100kb" }));
   app.use(generalLimiter); // light global rate cap
 

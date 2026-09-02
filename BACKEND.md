@@ -148,7 +148,7 @@ bhi capture karta hai taaki signup ke turant baad ek basic prediction ban sake.
 | `PORT`           | Server port (default 5000) |
 | `JWT_SECRET`     | JWT sign key. **Production mein badlo.** |
 | `JWT_EXPIRES_IN` | Token validity (default `7d`) |
-| `CLIENT_ORIGIN`  | CORS allowed origin(s), comma-separated |
+| `CLIENT_ORIGIN`  | CORS allowed origin(s), comma-separated; `*` = allow all |
 | `MONGODB_URI`    | Atlas connection string (db naam `astroveda` include) |
 | `MONGODB_DB`     | DB name (`astroveda`) |
 | `DNS_SERVERS`    | Optional. Public DNS (e.g. `8.8.8.8,1.1.1.1`) agar local resolver SRV refuse kare |
