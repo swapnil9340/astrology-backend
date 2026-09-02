@@ -12,9 +12,9 @@ import { generalLimiter, authLimiter } from "./middleware/rateLimit.js";
 export function createApp() {
   const app = express();
 
-  const raw = (process.env.CLIENT_ORIGIN || "http://localhost:3000").trim();
-  // CLIENT_ORIGIN="*" → allow all origins (origin:true reflects the request
-  // origin so it still works with credentials). Else use the comma-separated list.
+  // Default to allow-all (origin:true reflects the request origin → works with
+  // credentials). Set CLIENT_ORIGIN to specific comma-separated origins to lock down.
+  const raw = (process.env.CLIENT_ORIGIN || "*").trim();
   const corsOrigin = raw === "*" ? true : raw.split(",").map((o) => o.trim());
 
   // secure headers; allow cross-origin use since this is an API for other origins
