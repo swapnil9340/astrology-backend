@@ -83,6 +83,14 @@ function ascendant(date, latDeg, lonDeg, ayan) {
   return norm360(asc - ayan); // sidereal
 }
 
+/** Sidereal (Lahiri) Sun & Moon longitudes at an instant — used by panchang. */
+export function siderealSunMoon(date) {
+  const ayan = lahiriAyanamsa(date);
+  const sun = norm360(eclipticLonOfDate(Astronomy.Body.Sun, date) - ayan);
+  const moon = norm360(eclipticLonOfDate(Astronomy.Body.Moon, date) - ayan);
+  return { sun, moon, ayanamsa: ayan };
+}
+
 /**
  * @param {{date: Date|string, time: string|null, lat: number, lng: number, timezone: string}} birth
  * @returns chart object

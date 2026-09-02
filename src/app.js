@@ -1,7 +1,11 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import authRoutes from "./routes/auth.js";
 import predictRoutes from "./routes/predict.js";
+import panchangRoutes from "./routes/panchang.js";
+import chartRoutes from "./routes/chart.js";
+import { generalLimiter, authLimiter } from "./middleware/rateLimit.js";
 
 export function createApp() {
   const app = express();
@@ -10,15 +14,19 @@ export function createApp() {
     .split(",")
     .map((o) => o.trim());
 
+  app.use(helmet()); // secure HTTP headers
   app.use(cors({ origin: origins, credentials: true }));
-  app.use(express.json());
+  app.use(express.json({ limit: "100kb" }));
+  app.use(generalLimiter); // light global rate cap
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, service: "astroveda-backend", time: new Date().toISOString() });
   });
 
-  app.use("/api/auth", authRoutes);
+  app.use("/api/auth", authLimiter, authRoutes);
   app.use("/api/predict", predictRoutes);
+  app.use("/api/panchang", panchangRoutes);
+  app.use("/api/chart", chartRoutes);
 
   // 404
   app.use((_req, res) => res.status(404).json({ error: "Not found" }));

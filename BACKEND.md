@@ -34,6 +34,8 @@ AstroVeda ka **REST API backend** — Node.js + Express. Abhi ye **authenticatio
 | `dotenv`       | `.env` config load |
 | `astronomy-engine` | Pure-JS planetary positions (chart engine, no native build) |
 | `city-timezones`   | Offline geocoding: place → lat/lng/timezone |
+| `helmet`           | Secure HTTP headers |
+| `express-rate-limit` | Rate limiting (protects AI cost + brute-force) |
 
 ---
 
@@ -57,7 +59,8 @@ backend/
     │   ├── authController.js    # register / login / me
     │   └── predictController.js # basic prediction + history
     ├── middleware/
-    │   └── auth.js          # requireAuth — Bearer token verify
+    │   ├── auth.js          # requireAuth — Bearer token verify
+    │   └── rateLimit.js     # general / auth / predict rate limiters
     ├── models/
     │   ├── User.js          # Mongoose User schema (birth details)
     │   └── Prediction.js    # saved predictions (history)
@@ -70,8 +73,10 @@ backend/
         ├── aiClient.js      # provider-abstract AI (Gemini) — aiGenerate()
         └── astro/
             ├── constants.js # rashis, nakshatras, planets, helpers
-            └── chart.js     # sidereal chart engine (computeChart)
+            ├── chart.js     # sidereal chart engine (computeChart, siderealSunMoon)
+            └── panchang.js  # real-time panchang (computePanchang)
 ```
+Routes/controllers also include `panchang.js` (public `/api/panchang`).
 
 ### File-by-file
 
@@ -199,11 +204,28 @@ lat/lng/timezone on the user), computes the sidereal chart, and asks the AI agen
 //                 luckyNumber, luckyColor, luckyDay, remedy, disclaimer }
 // }
 // 400 → birth details missing   • 502 → AI failed   • 500 → chart failed
+// 429 → rate limit (20 predictions / hour per user)
 ```
 
 ### `GET /api/predict/history`  🔒
 ```jsonc
 // 200 → { predictions: [ { id, type, chart, prediction, createdAt } ] }
+```
+
+### `POST /api/chart`  (public, compute-only — no AI, no login)
+Real-time Vedic chart from birth details. Powers the homepage "Free Kundli" preview.
+```jsonc
+// body: { dateOfBirth: "YYYY-MM-DD", timeOfBirth?: "HH:MM", placeOfBirth?: "City, Country" }
+// 200 → { chart: { lagna, moonSign, sunSign, planets{...} }, place }
+// 422 → { error: "Validation failed", fields: { dateOfBirth } }
+```
+
+### `GET /api/panchang`  (public, real-time)
+Computes today's (or `?date=`) panchang for a location from real Sun/Moon positions.
+```jsonc
+// query: ?place=Jaipur,India  OR  ?lat=&lng=&tz=   (optional ?date=YYYY-MM-DD)
+// 200 → { panchang: { date, location, vaara, tithi, nakshatra, yoga, karana,
+//                     sunrise, sunset, rahuKaal, abhijitMuhurat } }
 ```
 
 ---
@@ -251,6 +273,9 @@ curl -X POST http://localhost:5000/api/auth/register -H "Content-Type: applicati
 | **Geocoding (offline)** | ✅ Done | place → lat/lng/timezone, cached on user |
 | **Chart engine (sidereal/Lahiri)** | ✅ Done | pure-JS (astronomy-engine); planets, rashi, nakshatra, Lagna |
 | **AI agent — basic prediction** | ✅ Done | `POST /api/predict/basic` (chart-grounded Gemini) + history |
+| **Security: helmet + rate limiting** | ✅ Done | general 300/15m, auth 40/15m, predict 20/hr per user |
+| **Real-time Panchang** | ✅ Done | `GET /api/panchang` — live tithi/nakshatra/yoga/karana/sunrise/sunset/rahu-kaal |
+| **Public real-time chart** | ✅ Done | `POST /api/chart` — homepage Free Kundli preview (compute-only, no AI/login) |
 | Kundli Milan / matching | ⏳ Planned | |
 | More prediction types (love/career/…) | ⏳ Planned | reuse `predict` pattern |
 | Rahu/Ketu true node, divisional charts | ⏳ Planned | v1 uses mean node |
