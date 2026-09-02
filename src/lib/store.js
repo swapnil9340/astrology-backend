@@ -5,6 +5,7 @@
  * (not `_id`) so controllers / publicUser() stay unchanged.
  */
 import { User } from "../models/User.js";
+import { Prediction } from "../models/Prediction.js";
 
 /** Map a Mongoose doc/lean object to the app's user shape (`_id` → `id`). */
 function toUser(doc) {
@@ -31,4 +32,22 @@ export async function getUserById(id) {
 export async function createUser(data) {
   const doc = await User.create({ ...data, email: String(data.email).toLowerCase() });
   return toUser(doc.toObject());
+}
+
+/** Patch a user (dot-notation keys allowed, e.g. "birth.place.lat"). */
+export async function updateUser(id, patch) {
+  const doc = await User.findByIdAndUpdate(id, { $set: patch }, { new: true }).lean();
+  return toUser(doc);
+}
+
+// ---- predictions ----
+export async function createPrediction(data) {
+  const doc = await Prediction.create(data);
+  const { _id, __v, ...rest } = doc.toObject();
+  return { id: String(_id), ...rest };
+}
+
+export async function listPredictions(userId, limit = 20) {
+  const docs = await Prediction.find({ userId }).sort({ createdAt: -1 }).limit(limit).lean();
+  return docs.map(({ _id, __v, ...rest }) => ({ id: String(_id), ...rest }));
 }

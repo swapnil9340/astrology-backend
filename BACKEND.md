@@ -32,6 +32,8 @@ AstroVeda ka **REST API backend** — Node.js + Express. Abhi ye **authenticatio
 | `bcryptjs`     | Password hashing (pure-JS) |
 | `jsonwebtoken` | JWT sign/verify |
 | `dotenv`       | `.env` config load |
+| `astronomy-engine` | Pure-JS planetary positions (chart engine, no native build) |
+| `city-timezones`   | Offline geocoding: place → lat/lng/timezone |
 
 ---
 
@@ -49,18 +51,26 @@ backend/
     ├── server.js            # Entry: .env load → DB connect → server start
     ├── app.js               # Express app (middleware + routes wiring)
     ├── routes/
-    │   └── auth.js          # /api/auth/* routes
+    │   ├── auth.js          # /api/auth/* routes
+    │   └── predict.js       # /api/predict/* routes
     ├── controllers/
-    │   └── authController.js# register / login / me logic
+    │   ├── authController.js    # register / login / me
+    │   └── predictController.js # basic prediction + history
     ├── middleware/
     │   └── auth.js          # requireAuth — Bearer token verify
     ├── models/
-    │   └── User.js          # Mongoose User schema
+    │   ├── User.js          # Mongoose User schema (birth details)
+    │   └── Prediction.js    # saved predictions (history)
     └── lib/
         ├── db.js            # MongoDB connection (+ DNS override)
-        ├── store.js         # Data layer (Mongoose). YAHIN DB abstract hai.
+        ├── store.js         # Data layer (users + predictions)
         ├── token.js         # JWT sign/verify + publicUser()
-        └── validate.js      # Input validation
+        ├── validate.js      # Input validation
+        ├── geocode.js       # place name → lat/lng/timezone (offline)
+        ├── aiClient.js      # provider-abstract AI (Gemini) — aiGenerate()
+        └── astro/
+            ├── constants.js # rashis, nakshatras, planets, helpers
+            └── chart.js     # sidereal chart engine (computeChart)
 ```
 
 ### File-by-file
@@ -77,6 +87,13 @@ backend/
 - **`src/middleware/auth.js`** — `requireAuth`: Bearer token verify → `req.userId`.
 - **`src/lib/token.js`** — `signToken`, `verifyToken`, `publicUser` (response se `passwordHash` hataata).
 - **`src/lib/validate.js`** — `validateRegister`, `validateLogin`.
+- **`src/lib/geocode.js`** — `geocodePlace(name)` → `{ lat, lng, timezone }` (offline dataset).
+- **`src/lib/astro/chart.js`** — `computeChart(birth)` → sidereal (Lahiri) chart: planets'
+  rashi + nakshatra, Moon/Sun sign, and Lagna (if birth time + place known). Pure JS.
+- **`src/lib/aiClient.js`** — `aiGenerate({system, prompt, json})` → Gemini (provider via `AI_PROVIDER`).
+- **`src/controllers/predictController.js`** — `basicPrediction`: user → geocode (cache on user)
+  → chart → grounded Gemini prompt → structured JSON → save history. `history`: past predictions.
+- **`src/models/Prediction.js`** — saved `{ userId, type, input, chart, prediction }`.
 
 ---
 
@@ -170,6 +187,25 @@ dateOfBirth required (valid, not future), timeOfBirth optional (HH:MM), placeOfB
 // 401 → { error: "Invalid or expired token." }
 ```
 
+### `POST /api/predict/basic`  🔒
+Uses the logged-in user's stored birth details. Geocodes the birth place (caches
+lat/lng/timezone on the user), computes the sidereal chart, and asks the AI agent
+(grounded on the chart) for a basic reading. Saves it to history.
+```jsonc
+// 200 → {
+//   id,
+//   chart: { meta, lagna, moonSign, sunSign, planets{ sun,moon,mars,... } },
+//   prediction: { headline, summary, personality, love, career, health,
+//                 luckyNumber, luckyColor, luckyDay, remedy, disclaimer }
+// }
+// 400 → birth details missing   • 502 → AI failed   • 500 → chart failed
+```
+
+### `GET /api/predict/history`  🔒
+```jsonc
+// 200 → { predictions: [ { id, type, chart, prediction, createdAt } ] }
+```
+
 ---
 
 ## 7. Auth flow
@@ -212,9 +248,12 @@ curl -X POST http://localhost:5000/api/auth/register -H "Content-Type: applicati
 | CORS | ✅ Done | |
 | **MongoDB (Mongoose)** | ✅ Done | Atlas, `users` collection |
 | AI provider config | ✅ Done | Gemini key set + verified (`gemini-3.6-flash`) |
-| **AI agent (predictions)** | ⏳ Next | `aiClient.js` + `/api/predict/:type` |
-| Chart engine (Swiss Ephemeris) | ⏳ Planned | kundli maths |
+| **Geocoding (offline)** | ✅ Done | place → lat/lng/timezone, cached on user |
+| **Chart engine (sidereal/Lahiri)** | ✅ Done | pure-JS (astronomy-engine); planets, rashi, nakshatra, Lagna |
+| **AI agent — basic prediction** | ✅ Done | `POST /api/predict/basic` (chart-grounded Gemini) + history |
 | Kundli Milan / matching | ⏳ Planned | |
+| More prediction types (love/career/…) | ⏳ Planned | reuse `predict` pattern |
+| Rahu/Ketu true node, divisional charts | ⏳ Planned | v1 uses mean node |
 | Payments / wallet | ⏳ Planned | |
 | Password reset / email verify | ⏳ Planned | |
 | Rate limiting / refresh tokens | ⏳ Planned | |
@@ -223,11 +262,12 @@ curl -X POST http://localhost:5000/api/auth/register -H "Content-Type: applicati
 
 ## 10. Next steps
 
-1. **`aiClient.js`** — provider-abstract AI client (Gemini first) + JSON output.
-2. **Chart engine** — Swiss Ephemeris → `POST /api/chart` (compute + cache).
-3. **Predictions** — `POST /api/predict/:type` (kundli/love/marriage first).
-4. Har feature ke baad ye doc update.
+1. **Frontend UI** — birth data se prediction dikhane wala page (result cards + history).
+2. **More prediction types** — `love`, `marriage`, `career` (same pipeline, alag prompt).
+3. **Kundli Milan** — `POST /api/match` (2 charts, Ashtakoot 36 guna).
+4. **Accuracy upgrades** — true Rahu/Ketu, divisional charts (D9/D10), precise geocoder.
+5. Har feature ke baad ye doc update.
 
 ---
 
-_Last updated: MongoDB migration + AI provider config done._
+_Last updated: geocoding + sidereal chart engine + basic AI prediction (chart-grounded) done._
