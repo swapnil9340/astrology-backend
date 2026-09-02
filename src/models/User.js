@@ -34,6 +34,17 @@ const userSchema = new mongoose.Schema(
     gender: { type: String, enum: ["male", "female", "other"], default: null },
     birth: { type: birthSchema, default: () => ({}) },
 
+    // Paid kundli credits (bought via packs). Free tier = first 3 predictions.
+    credits: { type: Number, default: 0 },
+
+    // Subscription (multiple plans: free/silver/gold/platinum)
+    subscription: {
+      plan: { type: String, enum: ["free", "silver", "gold", "platinum"], default: "free" },
+      status: { type: String, enum: ["none", "active", "expired", "cancelled"], default: "none" },
+      startedAt: { type: Date, default: null },
+      expiresAt: { type: Date, default: null },
+    },
+
     // Extra profile info — collected later, kept optional here.
     profile: {
       phone: { type: String, default: null },

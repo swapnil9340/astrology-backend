@@ -36,6 +36,7 @@ AstroVeda ka **REST API backend** — Node.js + Express. Abhi ye **authenticatio
 | `city-timezones`   | Offline geocoding: place → lat/lng/timezone |
 | `helmet`           | Secure HTTP headers |
 | `express-rate-limit` | Rate limiting (protects AI cost + brute-force) |
+| `razorpay`         | Payments — order create + signature verify |
 
 ---
 
@@ -126,6 +127,8 @@ bhi capture karta hai taaki signup ke turant baad ek basic prediction ban sake.
     }
   },
   profile: { phone: String, avatarUrl: String|null },
+  credits: Number,          // paid kundli credits (free tier = first 3, then packs)
+  subscription: { plan: "free"|"silver"|"gold"|"platinum", status, startedAt, expiresAt },
   createdAt: Date, updatedAt: Date   // timestamps: true
 }
 ```
@@ -152,6 +155,7 @@ bhi capture karta hai taaki signup ke turant baad ek basic prediction ban sake.
 | `AI_PROVIDER`    | `gemini` \| `groq` \| `ollama` \| `anthropic` |
 | `AI_MODEL`       | Model id (e.g. `gemini-3.6-flash`) |
 | `GEMINI_API_KEY` | Gemini free key ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay payment keys (test/live) |
 
 `.env` gitignored; `.env.example` copy karke banao.
 
@@ -166,6 +170,27 @@ bhi capture karta hai taaki signup ke turant baad ek basic prediction ban sake.
 Base URL: `http://localhost:5000`
 
 ### `GET /api/health` → `{ ok, service, time }`
+
+### `GET /api/plans`  (public)
+Subscription plans + one-time credit packs.
+```jsonc
+// 200 → { plans: [ {id,name,price,period,monthlyKundli,popular,tagline,features[]} ],
+//         packs: [ {id,name,credits,price} ] }
+```
+
+### `POST /api/payment/order`  🔒  (Razorpay)
+```jsonc
+// body: { kind: "pack"|"plan", itemId: "pack10"|"gold"|... }
+// 200 → { orderId, amount, currency, keyId, name }   // keyId = public Razorpay key
+```
+
+### `POST /api/payment/verify`  🔒
+Verifies the checkout signature (HMAC), then grants credits (pack) or activates the plan.
+```jsonc
+// body: { razorpay_order_id, razorpay_payment_id, razorpay_signature, kind, itemId }
+// 200 → { ok:true, credits?, subscription?, user }
+// 400 → signature verification failed
+```
 
 ### `POST /api/auth/register`
 ```jsonc
@@ -203,9 +228,13 @@ lat/lng/timezone on the user), computes the sidereal chart, and asks the AI agen
 //   prediction: { headline, summary, personality, love, career, health,
 //                 luckyNumber, luckyColor, luckyDay, remedy, disclaimer }
 // }
+//   returns also: freeLeft, credits
 // 400 → birth details missing   • 502 → AI failed   • 500 → chart failed
+// 402 → free limit reached (3 free kundlis used, no paid credits) → { code:"PAYMENT_REQUIRED", freeLimit, used }
 // 429 → rate limit (20 predictions / hour per user)
 ```
+**Free tier:** first **3** AI kundlis free per user; then a paid **credit** is consumed
+(bought via packs — payment gateway pending). Homepage `POST /api/chart` (compute-only) stays free.
 
 ### `GET /api/predict/history`  🔒
 ```jsonc
@@ -276,6 +305,11 @@ curl -X POST http://localhost:5000/api/auth/register -H "Content-Type: applicati
 | **Security: helmet + rate limiting** | ✅ Done | general 300/15m, auth 40/15m, predict 20/hr per user |
 | **Real-time Panchang** | ✅ Done | `GET /api/panchang` — live tithi/nakshatra/yoga/karana/sunrise/sunset/rahu-kaal |
 | **Public real-time chart** | ✅ Done | `POST /api/chart` — homepage Free Kundli preview (compute-only, no AI/login) |
+| **Free-3 quota + credits** | ✅ Done | 3 free AI kundlis/user; 402 + paywall after; `credits` field for paid packs |
+| **Subscription plans (multiple)** | ✅ Done | free/silver/gold/platinum; `GET /api/plans`; quota is plan-aware (Silver 30/mo, Gold/Platinum unlimited) |
+| **Payments (Razorpay)** | ✅ Done | order + verify; packs (₹100/10) → credits, plans → subscription. Test keys verified |
+| Kundli PDF/print + send (email/WhatsApp) | ⏳ Planned | |
+| Talk-to-Pandit (per-astrologer pricing, chat, share) | ⏳ Planned | |
 | Kundli Milan / matching | ⏳ Planned | |
 | More prediction types (love/career/…) | ⏳ Planned | reuse `predict` pattern |
 | Rahu/Ketu true node, divisional charts | ⏳ Planned | v1 uses mean node |

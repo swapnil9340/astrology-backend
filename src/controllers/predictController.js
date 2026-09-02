@@ -1,7 +1,13 @@
-import { getUserById, updateUser, createPrediction, listPredictions } from "../lib/store.js";
+import {
+  getUserById, updateUser, createPrediction, listPredictions,
+  countPredictions, countPredictionsThisMonth, adjustCredits,
+} from "../lib/store.js";
 import { geocodePlace } from "../lib/geocode.js";
 import { computeChart } from "../lib/astro/chart.js";
 import { aiGenerate } from "../lib/aiClient.js";
+import { effectivePlanId, getPlan } from "../lib/plans.js";
+
+const FREE_LIMIT = 3; // free plan: first 3 AI kundlis free; then credits/subscription
 
 const SYSTEM = `You are AstroVeda's expert Vedic astrologer.
 You are given a person's ACCURATE computed birth chart (sidereal / Lahiri).
@@ -53,6 +59,43 @@ export async function basicPrediction(req, res) {
     return res.status(400).json({ error: "Birth details missing. Please complete your profile." });
   }
 
+  // Quota — depends on the user's effective subscription plan.
+  const planId = effectivePlanId(user);
+  const plan = getPlan(planId);
+  let usingPaidCredit = false;
+  let usedTotal = 0;
+
+  if (planId === "free") {
+    // free plan: FREE_LIMIT lifetime, then a paid credit (pack) is needed
+    usedTotal = await countPredictions(user.id);
+    if (usedTotal >= FREE_LIMIT) {
+      if ((user.credits || 0) > 0) usingPaidCredit = true;
+      else
+        return res.status(402).json({
+          error: `Aapki ${FREE_LIMIT} free kundli ho chuki hain. Subscribe karein ya ek pack lein.`,
+          code: "PAYMENT_REQUIRED",
+          reason: "free_exhausted",
+          freeLimit: FREE_LIMIT,
+          used: usedTotal,
+          credits: user.credits || 0,
+        });
+    }
+  } else if (plan.monthlyKundli != null) {
+    // metered paid plan (e.g. Silver = 30/month)
+    const usedMonth = await countPredictionsThisMonth(user.id);
+    if (usedMonth >= plan.monthlyKundli) {
+      return res.status(402).json({
+        error: `Is mahine ki ${plan.monthlyKundli} kundli limit poori ho gayi. Upgrade karein.`,
+        code: "LIMIT_REACHED",
+        reason: "monthly_exhausted",
+        plan: planId,
+        monthlyKundli: plan.monthlyKundli,
+        used: usedMonth,
+      });
+    }
+  }
+  // else: Gold/Platinum → unlimited, no check
+
   const birth = { ...user.birth, place: { ...(user.birth.place || {}) } };
 
   // Geocode place if coordinates are missing, and cache them on the user.
@@ -101,7 +144,14 @@ export async function basicPrediction(req, res) {
     });
   } catch { /* ignore */ }
 
-  return res.json({ id: saved?.id, chart, prediction });
+  // Consume a paid credit only if a free-plan user went beyond the free tier.
+  let creditsLeft = user.credits || 0;
+  if (usingPaidCredit) {
+    try { const u = await adjustCredits(user.id, -1); creditsLeft = u?.credits ?? creditsLeft - 1; } catch {}
+  }
+
+  const freeLeft = planId === "free" ? Math.max(0, FREE_LIMIT - (usedTotal + 1)) : null;
+  return res.json({ id: saved?.id, chart, prediction, plan: planId, freeLeft, credits: creditsLeft });
 }
 
 // GET /api/predict/history  (protected)
