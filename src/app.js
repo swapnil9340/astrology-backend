@@ -17,8 +17,10 @@ export function createApp() {
   // origin so it still works with credentials). Else use the comma-separated list.
   const corsOrigin = raw === "*" ? true : raw.split(",").map((o) => o.trim());
 
-  app.use(helmet()); // secure HTTP headers
+  // secure headers; allow cross-origin use since this is an API for other origins
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(cors({ origin: corsOrigin, credentials: true }));
+  app.options("*", cors({ origin: corsOrigin, credentials: true })); // preflight
   app.use(express.json({ limit: "100kb" }));
   app.use(generalLimiter); // light global rate cap
 
