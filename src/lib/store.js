@@ -6,16 +6,11 @@
  */
 import { User } from "../models/User.js";
 
-/** Map a Mongoose doc/lean object to the app's user shape. */
+/** Map a Mongoose doc/lean object to the app's user shape (`_id` → `id`). */
 function toUser(doc) {
   if (!doc) return null;
-  return {
-    id: String(doc._id),
-    name: doc.name,
-    email: doc.email,
-    passwordHash: doc.passwordHash,
-    createdAt: doc.createdAt,
-  };
+  const { _id, __v, ...rest } = doc;
+  return { id: String(_id), ...rest };
 }
 
 export async function getUserByEmail(email) {
@@ -33,7 +28,7 @@ export async function getUserById(id) {
   }
 }
 
-export async function createUser({ name, email, passwordHash }) {
-  const doc = await User.create({ name, email: String(email).toLowerCase(), passwordHash });
+export async function createUser(data) {
+  const doc = await User.create({ ...data, email: String(data.email).toLowerCase() });
   return toUser(doc.toObject());
 }

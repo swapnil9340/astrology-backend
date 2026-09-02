@@ -14,7 +14,14 @@ export async function register(req, res) {
   }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
-  const user = await createUser({ name: data.name, email: data.email, passwordHash });
+  const user = await createUser({
+    name: data.name,
+    email: data.email,
+    passwordHash,
+    gender: data.gender,
+    profile: data.profile,
+    birth: data.birth,
+  });
   const token = signToken(user);
 
   return res.status(201).json({ token, user: publicUser(user) });

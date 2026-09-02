@@ -82,18 +82,34 @@ backend/
 
 ## 4. Data model
 
-**Collection `users`** (MongoDB, `astroveda` db). Mongoose schema:
+**Collection `users`** (MongoDB, `astroveda` db). Registration ab **birth details**
+bhi capture karta hai taaki signup ke turant baad ek basic prediction ban sake.
 
 ```js
 {
-  _id: ObjectId,          // API mein "id" (hex string) ban ke jaata hai
-  name: String,           // required
-  email: String,          // required, unique, lowercase, indexed
-  passwordHash: String,   // bcrypt hash — kabhi client ko nahi jaata
-  createdAt: Date,        // timestamps: true
-  updatedAt: Date
+  _id: ObjectId,            // API mein "id" (hex string)
+  name: String,             // required
+  email: String,            // required, unique, lowercase, indexed
+  passwordHash: String,     // bcrypt hash — kabhi client ko nahi jaata
+  gender: "male"|"female"|"other",
+  birth: {
+    date: Date,             // date of birth
+    time: String|null,      // "HH:MM" (24h); null agar unknown
+    timeKnown: Boolean,
+    place: {
+      name: String,         // "City, Country"
+      lat: Number|null,     // geocoding se baad mein bharenge
+      lng: Number|null,
+      timezone: String|null // e.g. "Asia/Kolkata"
+    }
+  },
+  profile: { phone: String, avatarUrl: String|null },
+  createdAt: Date, updatedAt: Date   // timestamps: true
 }
 ```
+
+> `lat`/`lng`/`timezone` abhi `null` — accurate Lagna ke liye chart engine ke saath
+> geocoding se bharenge (Phase 1 next). Basic prediction DOB + place se ban jaayegi.
 
 - `email` unique + lowercase → case-insensitive, duplicate guard.
 - `store.js` `_id` ko `id` (string) mein convert karke deta hai; `publicUser` `passwordHash` hataata hai.
@@ -131,11 +147,15 @@ Base URL: `http://localhost:5000`
 
 ### `POST /api/auth/register`
 ```jsonc
-// body: { name, email, password }
-// 201 → { token, user: { id, name, email, createdAt } }
-// 422 → { error: "Validation failed", fields: {...} }
+// body:
+// { name, email, password, phone, gender,
+//   dateOfBirth: "YYYY-MM-DD", timeOfBirth: "HH:MM" (optional), placeOfBirth: "City, Country" }
+// 201 → { token, user: { id, name, email, gender, birth{...}, profile{phone}, createdAt } }
+// 422 → { error: "Validation failed", fields: { dateOfBirth, phone, ... } }
 // 409 → { error: "An account with this email already exists." }
 ```
+Validation: name≥2, valid email, password≥6, phone 10–15 digits, gender required,
+dateOfBirth required (valid, not future), timeOfBirth optional (HH:MM), placeOfBirth required.
 
 ### `POST /api/auth/login`
 ```jsonc
@@ -187,6 +207,7 @@ curl -X POST http://localhost:5000/api/auth/register -H "Content-Type: applicati
 |---------|--------|-------|
 | Health check | ✅ Done | |
 | Register / Login / Me | ✅ Done | JWT + bcrypt |
+| **Registration with birth details + phone** | ✅ Done | gender, DOB, time, place, phone stored |
 | Input validation + duplicate guard | ✅ Done | |
 | CORS | ✅ Done | |
 | **MongoDB (Mongoose)** | ✅ Done | Atlas, `users` collection |
