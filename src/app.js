@@ -24,6 +24,14 @@ export function createApp() {
   app.use(express.json({ limit: "100kb" }));
   app.use(generalLimiter); // light global rate cap
 
+  app.get("/", (_req, res) => {
+    res.json({
+      ok: true,
+      message: "🔮 AstroVeda API is running",
+      docs: ["/api/health", "/api/plans", "/api/auth", "/api/predict", "/api/panchang", "/api/chart"],
+    });
+  });
+
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, service: "astroveda-backend", time: new Date().toISOString() });
   });
