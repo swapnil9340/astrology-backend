@@ -6,6 +6,7 @@ import predictRoutes from "./routes/predict.js";
 import panchangRoutes from "./routes/panchang.js";
 import chartRoutes from "./routes/chart.js";
 import paymentRoutes from "./routes/payment.js";
+import rashifalRoutes from "./routes/rashifal.js";
 import { PLANS, PACKS } from "./lib/plans.js";
 import { generalLimiter, authLimiter } from "./middleware/rateLimit.js";
 
@@ -44,6 +45,7 @@ export function createApp() {
   app.use("/api/panchang", panchangRoutes);
   app.use("/api/chart", chartRoutes);
   app.use("/api/payment", paymentRoutes);
+  app.use("/api/rashifal", rashifalRoutes);
 
   // 404
   app.use((_req, res) => res.status(404).json({ error: "Not found" }));

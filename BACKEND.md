@@ -249,6 +249,16 @@ Real-time Vedic chart from birth details. Powers the homepage "Free Kundli" prev
 // 422 → { error: "Validation failed", fields: { dateOfBirth } }
 ```
 
+### `GET /api/rashifal/:sign`  (public, AI + daily cache)
+Today's AI-generated daily horoscope for a sign (aries…pisces). Cached per sign per day
+(MongoDB) so Gemini is called at most once/sign/day. No login, free.
+```jsonc
+// 200 → { sign, date, source:"ai"|"cache", rashifal: {
+//   overall, love, career, health, finance,
+//   lucky:{number,color,time}, mood, ratings:{love,career,health} } }
+// 404 → unknown sign   • 502 → AI failed
+```
+
 ### `GET /api/panchang`  (public, real-time)
 Computes today's (or `?date=`) panchang for a location from real Sun/Moon positions.
 ```jsonc
@@ -303,6 +313,7 @@ curl -X POST http://localhost:5000/api/auth/register -H "Content-Type: applicati
 | **Chart engine (sidereal/Lahiri)** | ✅ Done | pure-JS (astronomy-engine); planets, rashi, nakshatra, Lagna |
 | **AI agent — basic prediction** | ✅ Done | `POST /api/predict/basic` (chart-grounded Gemini) + history |
 | **Security: helmet + rate limiting** | ✅ Done | general 300/15m, auth 40/15m, predict 20/hr per user |
+| **AI Daily Rashifal** | ✅ Done | `GET /api/rashifal/:sign` — Gemini, cached per sign/day, public/free |
 | **Real-time Panchang** | ✅ Done | `GET /api/panchang` — live tithi/nakshatra/yoga/karana/sunrise/sunset/rahu-kaal |
 | **Public real-time chart** | ✅ Done | `POST /api/chart` — homepage Free Kundli preview (compute-only, no AI/login) |
 | **Free-3 quota + credits** | ✅ Done | 3 free AI kundlis/user; 402 + paywall after; `credits` field for paid packs |
