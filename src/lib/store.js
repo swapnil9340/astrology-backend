@@ -5,17 +5,14 @@
  * (not `_id`) so controllers / publicUser() stay unchanged.
  */
 import { User } from "../models/User.js";
+import { Prediction } from "../models/Prediction.js";
+import { Payment } from "../models/Payment.js";
 
-/** Map a Mongoose doc/lean object to the app's user shape. */
+/** Map a Mongoose doc/lean object to the app's user shape (`_id` → `id`). */
 function toUser(doc) {
   if (!doc) return null;
-  return {
-    id: String(doc._id),
-    name: doc.name,
-    email: doc.email,
-    passwordHash: doc.passwordHash,
-    createdAt: doc.createdAt,
-  };
+  const { _id, __v, ...rest } = doc;
+  return { id: String(_id), ...rest };
 }
 
 export async function getUserByEmail(email) {
@@ -33,7 +30,63 @@ export async function getUserById(id) {
   }
 }
 
-export async function createUser({ name, email, passwordHash }) {
-  const doc = await User.create({ name, email: String(email).toLowerCase(), passwordHash });
+export async function createUser(data) {
+  const doc = await User.create({ ...data, email: String(data.email).toLowerCase() });
   return toUser(doc.toObject());
+}
+
+/** Patch a user (dot-notation keys allowed, e.g. "birth.place.lat"). */
+export async function updateUser(id, patch) {
+  const doc = await User.findByIdAndUpdate(id, { $set: patch }, { new: true }).lean();
+  return toUser(doc);
+}
+
+/** Atomically change a user's credit balance (delta can be negative). */
+export async function adjustCredits(id, delta) {
+  const doc = await User.findByIdAndUpdate(id, { $inc: { credits: delta } }, { new: true }).lean();
+  return toUser(doc);
+}
+
+/** Activate a subscription plan for `days` from now. */
+export async function activateSubscription(id, plan, days = 30) {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + days * 86400000);
+  const doc = await User.findByIdAndUpdate(
+    id,
+    { $set: { subscription: { plan, status: "active", startedAt: now, expiresAt } } },
+    { new: true }
+  ).lean();
+  return toUser(doc);
+}
+
+// ---- payments ----
+export async function createPayment(data) {
+  const doc = await Payment.create(data);
+  return { id: String(doc._id), ...doc.toObject() };
+}
+
+export async function markPaymentPaid(orderId, paymentId) {
+  await Payment.updateOne({ orderId }, { $set: { status: "paid", paymentId } });
+}
+
+// ---- predictions ----
+export async function countPredictions(userId) {
+  return Prediction.countDocuments({ userId });
+}
+
+export async function countPredictionsThisMonth(userId) {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  return Prediction.countDocuments({ userId, createdAt: { $gte: start } });
+}
+
+export async function createPrediction(data) {
+  const doc = await Prediction.create(data);
+  const { _id, __v, ...rest } = doc.toObject();
+  return { id: String(_id), ...rest };
+}
+
+export async function listPredictions(userId, limit = 20) {
+  const docs = await Prediction.find({ userId }).sort({ createdAt: -1 }).limit(limit).lean();
+  return docs.map(({ _id, __v, ...rest }) => ({ id: String(_id), ...rest }));
 }

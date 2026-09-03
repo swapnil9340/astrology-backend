@@ -240,10 +240,22 @@ Ek generic `predict/:type` endpoint → saare prediction types ek pattern se.
 
 ---
 
-## 11. Monetization
+## 11. Monetization (decided model)
 
-Freemium (basic free, detail paid) · per-report · subscription (daily predictions + chat) ·
-talk-to-astrologer (per-min) · shop (gemstone/remedies).
+1. **Free tier: 3 kundlis per user.** Uske baad AI kundli banane ke liye pay karna hoga.
+   (Homepage ka quick chart preview — compute-only, no AI — free rehta hai.)
+2. **Kundli packs (payment gateway):** e.g. **₹100 = 10 kundli**. Credits user account
+   mein add hote hain; har AI kundli 1 credit khaati hai. Gateway: **Razorpay** (India).
+3. **Delivery add-ons:** generate + **send** (email/WhatsApp) + **print/PDF download** option.
+4. **Talk to Pandit ji:** famous/verified astrologers se **direct chat/call**, unke saath
+   **kundli share**. Har pandit ka **alag charge** (per-min ya per-session). Platform commission.
+5. (Later) subscription, shop (gemstone/remedies/yantra).
+
+### Build order
+- ✅/🔜 **Free-3 quota** (backend counts predictions; 4th pe paywall) — foundation, no keys needed.
+- 🔜 **Razorpay integration** — order create + verify webhook → credits add. (Razorpay keys chahiye.)
+- 🔜 **PDF/print** of kundli + send (email/WhatsApp).
+- 🔜 **Pandit module** — astrologer profiles + per-astrologer pricing + chat (Socket.IO) + kundli share.
 
 ---
 
